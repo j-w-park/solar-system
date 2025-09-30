@@ -1,0 +1,75 @@
+# Unity core folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Uu]ser[Ss]ettings/
+[Ll]ogs/
+[Mm]emory[Cc]aptures/
+[Ee]xported[Oo]bj/
+
+# Build outputs
+[Bb]uild*/   # Build/ and Builds/
+
+# IDE/editor
+.vs/
+.vscode/
+.idea/
+.gradle/
+.consulo/
+
+# Unity-generated project files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Crash/diagnostic
+sysinfo.txt
+crashlytics-build.properties
+
+# Packages & archives
+*.apk
+*.aab
+*.app
+*.unitypackage
+
+# Unity monitor
+~UnityDirMonSyncFile~*
+
+# Addressables authoring binaries only (keep settings JSON/asset files)
+**/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+
+# Addressables build output in StreamingAssets (ignore everything under aa/)
+**/[Aa]ssets/[Ss]treaming[Aa]ssets/aa/**
+**/[Aa]ssets/[Ss]treaming[Aa]ssets/aa.meta
+
+# Asset Store Tools
+**/[Aa]ssets/AssetStoreTools/**
+**/[Aa]ssets/AssetStoreTools.meta
+
+# PlasticSCM Unity plugin
+/[Aa]ssets/[Pp]lugins/PlasticSCM*
+
+# Private files
+*.private
+*.private.meta
+*.private.[0-9]*
+*.private.[0-9]*.meta
+
+# OS noise
+.DS_Store*
+Thumbs.db
+Desktop.ini
