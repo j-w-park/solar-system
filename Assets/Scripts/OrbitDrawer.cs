@@ -1,142 +1,232 @@
-using System.Collections.Generic;
-using NUnit.Framework;
-using Unity.VisualScripting;
+using System;
 using UnityEngine;
+
+public struct VirtualBody
+{
+    public float mass;
+    public float radius;
+    public Vector3 position;
+    public Vector3 velocity;
+    public Vector3 acceleration;
+}
 
 public class OrbitDrawer : MonoBehaviour
 {
-    [Min(0)] public int numSegments = 100;
+    [Min(0)] public int numSteps = 100;
+    [Min(0f)] public float softening = 0.02f; // avoids singluarity at very small r
 
-    private CelestialBody[] allBodies;
+    private CelestialBody[] bodies;
+    private VirtualBody[] vbs; // snapshots
+    private Vector3[][] trails;
 
-    private List<Trail> trails;
+    private bool hasCollision;
+    private int colA = -1, colB = -1, colStep = -1;
+    private int stepsUsed = 0;
 
-    class VirtualBody
+    private void Init()
     {
-        public float mass;
-        public float radius;
-        public Vector3 position;
-        public Vector3 velocity;
-    }
-
-    class TrailPoint
-    {
-        public Vector3 position;
-        public bool isCollided = false;
-    }
-
-    class Trail
-    {
-        public VirtualBody target;
-        public TrailPoint[] points;
-
-        public Trail(VirtualBody target, int numPoints)
+        this.bodies = FindObjectsByType<CelestialBody>(FindObjectsSortMode.None);
+        if (this.bodies == null || this.bodies.Length == 0)
         {
-            this.target = target;
-            this.points = new TrailPoint[numPoints];
+            return;
         }
-    }
 
-    private void CalculateTrails()
-    {
-        this.trails = new List<Trail>(this.allBodies.Length);
-        for (int i = 0; i < this.allBodies.Length; ++i)
+        var n = this.bodies.Length;
+        if (this.vbs == null || this.vbs.Length != n)
         {
-            var target = new VirtualBody
+            this.vbs = new VirtualBody[n];
+        }
+        if (this.trails == null || this.trails.Length != n)
+        {
+            this.trails = new Vector3[n][];
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            this.vbs[i] = new VirtualBody
             {
-                mass = this.allBodies[i].mass,
-                radius = this.allBodies[i].transform.localScale.x * 0.5f,
-                position = this.allBodies[i].transform.position,
-                velocity = this.allBodies[i].initialVelocity
+                mass = this.bodies[i].Mass,
+                radius = this.bodies[i].Radius,
+                position = this.bodies[i].transform.position,
+                velocity = this.bodies[i].initialVelocity,
+                acceleration = Vector3.zero,
             };
-            this.trails.Add(new Trail(target, this.numSegments));
         }
 
-        for (int i = 0; i < this.numSegments; ++i)
+        // reset collision info
+        this.hasCollision = false;
+        this.colA = this.colB = -1;
+        this.colStep = -1;
+        this.stepsUsed = Math.Min(1, this.numSteps); // at least the initial point
+    }
+
+    private bool CheckCollision(out int a, out int b)
+    {
+        int n = this.vbs.Length;
+
+        a = b = -1;
+        for (int i = 0; i < n - 1; ++i)
         {
-            // update velocity
-            for (int j = 0; j < this.allBodies.Length; ++j)
+            for (int j = i + 1; j < n; ++j)
             {
-                var current = this.trails[j];
-                for (int k = 0; k < this.allBodies.Length; ++k)
+                float dist = Vector3.Distance(this.vbs[i].position, this.vbs[j].position);
+                if (dist < this.vbs[i].radius + this.vbs[j].radius)
                 {
-                    var other = this.trails[k];
-                    if (current.target != other.target)
-                    {
-                        Vector3 disp = other.target.position - current.target.position;
-                        Vector3 acc = disp.normalized * this.allBodies[k].mass / disp.sqrMagnitude;
-                        current.target.velocity += acc * Time.fixedDeltaTime;
-
-                    }
+                    a = i;
+                    b = j;
+                    return true;
                 }
             }
+        }
 
-            // update position
-            for (int j = 0; j < this.allBodies.Length; ++j)
+        return false;
+    }
+
+    private void ComputeAccelerations()
+    {
+        int n = this.vbs.Length;
+
+        for (int i = 0; i < n; ++i)
+        {
+            this.vbs[i].acceleration = Vector3.zero;
+        }
+
+        // pairwise accumulation
+        for (int i = 0; i < n - 1; ++i)
+        {
+            for (int j = i + 1; j < n; ++j)
             {
-                Trail t = this.trails[j];
-                t.target.position += t.target.velocity * Time.fixedDeltaTime;
-                t.points[i] = new TrailPoint
-                {
-                    position = t.target.position,
-                    isCollided = false,
-                };
+                Vector3 r = this.vbs[j].position - this.vbs[i].position;
+                float r2 = r.sqrMagnitude + this.softening * this.softening;
+                float invR = 1.0f / Mathf.Sqrt(r2);
+                float invR3 = invR * invR * invR;
+
+                Vector3 a = r * invR3;
+
+                this.vbs[i].acceleration += a * this.vbs[j].mass;
+                this.vbs[j].acceleration -= a * this.vbs[i].mass;
             }
-
-            // check for collision
-            for (int j = 0; j < this.allBodies.Length; ++j)
-            {
-                Trail current = this.trails[j];
-                for (int k = 0; k < this.allBodies.Length; ++k)
-                {
-                    Trail other = this.trails[k];
-                    if (current.target == other.target)
-                    {
-                        continue;
-                    }
-
-                    float dist = Vector3.Distance(current.target.position, other.target.position);
-                    if (dist < current.target.radius + other.target.radius)
-                    {
-                        current.points[i].isCollided = true;
-                    }
-                }
-            }
-
         }
     }
+
+    private void Simulate()
+    {
+        if (this.vbs == null)
+        {
+            return;
+        }
+
+        int n = this.vbs.Length;
+        if (n == 0 || this.numSteps < 2)
+        {
+            return;
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (this.trails[i] == null || this.trails[i].Length != this.numSteps)
+            {
+                this.trails[i] = new Vector3[this.numSteps];
+            }
+            this.trails[i][0] = this.vbs[i].position;
+        }
+
+        // leapfrog: initial half-kick
+        this.ComputeAccelerations();
+        for (int i = 0; i < n; ++i)
+        {
+            this.vbs[i].velocity += this.vbs[i].acceleration * (Time.fixedDeltaTime * 0.5f);
+        }
+
+        // main steps
+        for (int @is = 1; @is < this.numSteps; ++@is)
+        {
+            // drift
+            for (int i = 0; i < n; ++i)
+            {
+                this.vbs[i].position += this.vbs[i].velocity * Time.fixedDeltaTime;
+            }
+
+            // record position
+            for (int i = 0; i < n; ++i)
+            {
+                this.trails[i][@is] = this.vbs[i].position;
+            }
+
+            this.stepsUsed = @is + 1;
+
+            // collision check
+            if (this.CheckCollision(out this.colA, out this.colB))
+            {
+                this.hasCollision = true;
+                this.colStep = @is;
+                break;
+            }
+
+            this.ComputeAccelerations();
+
+            // full kick except last
+            if (@is < numSteps - 1)
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    this.vbs[i].velocity += this.vbs[i].acceleration * Time.fixedDeltaTime;
+                }
+            }
+        }
+
+        if (!this.hasCollision)
+        {
+            // final half-kick to keep positions/velocities time-centered
+            for (int i = 0; i < n; ++i)
+            {
+                this.vbs[i].velocity += this.vbs[i].acceleration * (Time.fixedDeltaTime * 0.5f);
+            }
+        }
+    }
+
+    private void DrawTrails()
+    {
+        int n = this.trails.Length;
+        for (int i = 0; i < n; ++i)
+        {
+            Gizmos.color = Color.HSVToRGB((float)i / Mathf.Max(1, n), 1f, 1f);
+            // draw only up to stepsUsed
+            for (int @is = 1; @is < this.stepsUsed; ++@is)
+            {
+                Gizmos.DrawLine(this.trails[i][@is - 1], this.trails[i][@is]);
+            }
+        }
+
+        if (this.hasCollision && this.colA >= 0 && this.colB >= 0 && this.colStep >= 0)
+        {
+            Gizmos.color = Color.red;
+            float rA = this.vbs[this.colA].radius;
+            float rB = this.vbs[this.colB].radius;
+            Gizmos.DrawSphere(this.trails[this.colA][this.colStep], rA);
+            Gizmos.DrawSphere(this.trails[this.colB][this.colStep], rB);
+        }
+    }
+
 
     private void OnDrawGizmos()
     {
-        this.allBodies = FindObjectsByType<CelestialBody>(FindObjectsSortMode.None);
-        Debug.Log(this.allBodies.Length);
-
-        if (!Application.isPlaying)
+        if (Application.isPlaying)
         {
-            this.CalculateTrails();
-        } else if (this.trails == null || this.trails.Count != this.allBodies.Length)
-        {
-            this.CalculateTrails();
-        }
-
-        Debug.Log(this.trails);
-
-        for (int i = 0; i < this.allBodies.Length; ++i)
-        {
-            Gizmos.color = Color.HSVToRGB((float)i / this.allBodies.Length, 1.0f, 1.0f);
-            for (int j = 1; j < this.trails[i].points.Length; ++j)
+            if (this.trails == null)
             {
-                Gizmos.DrawLine(this.trails[i].points[j - 1].position, this.trails[i].points[j].position);
-            }
-
-            Gizmos.color = Color.red;
-            for (int j = 0; j < this.trails[i].points.Length; ++j)
-            {
-                if (this.trails[i].points[j].isCollided)
-                {
-                    Gizmos.DrawSphere(this.trails[i].points[j].position, this.trails[i].target.radius * 0.5f);
-                }
+                Init();
+                Simulate();
             }
         }
+        else
+        {
+            Init();
+            Simulate();
+        }
+
+        Simulate();
+
+        DrawTrails();
     }
 }
