@@ -14,7 +14,9 @@ public class OrbitDrawer : MonoBehaviour
 {
     [Min(0)] public int numSteps = 100;
     [Min(0f)] public float softening = 0.02f; // avoids singluarity at very small r
+    public CelestialBody relativeTo = null; // if set, draw orbits relative to this body
 
+    private int relativeIndex = -1;
     private CelestialBody[] bodies;
     private VirtualBody[] vbs; // snapshots
     private Vector3[][] trails;
@@ -31,11 +33,25 @@ public class OrbitDrawer : MonoBehaviour
             return;
         }
 
+        this.relativeIndex = -1;
+        if (this.relativeTo != null)
+        {
+            for (int i = 0; i < this.bodies.Length; ++i)
+            {
+                if (this.bodies[i] == this.relativeTo)
+                {
+                    this.relativeIndex = i;
+                    break;
+                }
+            }
+        }
+
         var n = this.bodies.Length;
         if (this.vbs == null || this.vbs.Length != n)
         {
             this.vbs = new VirtualBody[n];
         }
+
         if (this.trails == null || this.trails.Length != n)
         {
             this.trails = new Vector3[n][];
@@ -188,23 +204,45 @@ public class OrbitDrawer : MonoBehaviour
     private void DrawTrails()
     {
         int n = this.trails.Length;
+
+        var anchor = Vector3.zero;
+        if (this.relativeIndex >= 0)
+        {
+            anchor = this.bodies[this.relativeIndex].transform.position;
+        }
+
         for (int i = 0; i < n; ++i)
         {
             Gizmos.color = Color.HSVToRGB((float)i / Mathf.Max(1, n), 1f, 1f);
             // draw only up to stepsUsed
             for (int @is = 1; @is < this.stepsUsed; ++@is)
             {
-                Gizmos.DrawLine(this.trails[i][@is - 1], this.trails[i][@is]);
+                Vector3 p0 = this.trails[i][@is - 1];
+                Vector3 p1 = this.trails[i][@is];
+                if (this.relativeIndex >= 0)
+                {
+                    p0 = p0 - this.trails[this.relativeIndex][@is - 1] + anchor;
+                    p1 = p1 - this.trails[this.relativeIndex][@is] + anchor;
+                }
+                Gizmos.DrawLine(p0, p1);
             }
         }
 
         if (this.hasCollision && this.colA >= 0 && this.colB >= 0 && this.colStep >= 0)
         {
             Gizmos.color = Color.red;
+            Vector3 pa = this.trails[this.colA][this.colStep];
+            Vector3 pb = this.trails[this.colB][this.colStep];
+            if (this.relativeIndex >= 0)
+            {
+                var pref = this.trails[this.relativeIndex][this.colStep];
+                pa = pa - pref + anchor;
+                pb = pb - pref + anchor;
+            }
             float rA = this.vbs[this.colA].radius;
             float rB = this.vbs[this.colB].radius;
-            Gizmos.DrawSphere(this.trails[this.colA][this.colStep], rA);
-            Gizmos.DrawSphere(this.trails[this.colB][this.colStep], rB);
+            Gizmos.DrawSphere(pa, rA);
+            Gizmos.DrawSphere(pb, rB);
         }
     }
 
