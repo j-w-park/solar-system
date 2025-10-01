@@ -263,8 +263,6 @@ public class OrbitDrawer : MonoBehaviour
             Simulate();
         }
 
-        Simulate();
-
         DrawTrails();
     }
 }
