@@ -13,17 +13,41 @@ public struct VirtualBody
 public class OrbitDrawer : MonoBehaviour
 {
     [Min(0)] public int numSteps = 100;
-    [Min(0f)] public float softening = 0.02f; // avoids singluarity at very small r
     public CelestialBody relativeTo = null; // if set, draw orbits relative to this body
 
     private int relativeIndex = -1;
     private CelestialBody[] bodies;
-    private VirtualBody[] vbs; // snapshots
     private Vector3[][] trails;
+
+    // snapshots
+    private Vector3[] pos;
+    private Vector3[] vel;
+    private Vector3[] acc;
+    private float[] mass;
+    private float[] radius;
 
     private bool hasCollision;
     private int colA = -1, colB = -1, colStep = -1;
     private int stepsUsed = 0;
+
+    private void Awake()
+    {
+        if (Application.isPlaying)
+        {
+            this.Init();
+            this.Simulate();
+        }
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!Application.isPlaying)
+        {
+            this.Init();
+            this.Simulate();
+        }
+        this.DrawTrails();
+    }
 
     private void Init()
     {
@@ -47,26 +71,24 @@ public class OrbitDrawer : MonoBehaviour
         }
 
         var n = this.bodies.Length;
-        if (this.vbs == null || this.vbs.Length != n)
+
+        this.pos = new Vector3[n];
+        this.vel = new Vector3[n];
+        this.acc = new Vector3[n];
+        this.mass = new float[n];
+        this.radius = new float[n];
+
+        for (int i = 0; i < n; ++i)
         {
-            this.vbs = new VirtualBody[n];
+            this.pos[i] = this.bodies[i].transform.position;
+            this.vel[i] = this.bodies[i].initialVelocity;
+            this.mass[i] = this.bodies[i].Mass;
+            this.radius[i] = this.bodies[i].Radius;
         }
 
         if (this.trails == null || this.trails.Length != n)
         {
             this.trails = new Vector3[n][];
-        }
-
-        for (int i = 0; i < n; ++i)
-        {
-            this.vbs[i] = new VirtualBody
-            {
-                mass = this.bodies[i].Mass,
-                radius = this.bodies[i].Radius,
-                position = this.bodies[i].transform.position,
-                velocity = this.bodies[i].initialVelocity,
-                acceleration = Vector3.zero,
-            };
         }
 
         // reset collision info
@@ -78,15 +100,15 @@ public class OrbitDrawer : MonoBehaviour
 
     private bool CheckCollision(out int a, out int b)
     {
-        int n = this.vbs.Length;
-
         a = b = -1;
+
+        int n = this.bodies.Length;
         for (int i = 0; i < n - 1; ++i)
         {
             for (int j = i + 1; j < n; ++j)
             {
-                float dist = Vector3.Distance(this.vbs[i].position, this.vbs[j].position);
-                if (dist < this.vbs[i].radius + this.vbs[j].radius)
+                float dist = Vector3.Distance(this.pos[i], this.pos[j]);
+                if (dist < this.radius[i] + this.radius[j])
                 {
                     a = i;
                     b = j;
@@ -98,41 +120,9 @@ public class OrbitDrawer : MonoBehaviour
         return false;
     }
 
-    private void ComputeAccelerations()
-    {
-        int n = this.vbs.Length;
-
-        for (int i = 0; i < n; ++i)
-        {
-            this.vbs[i].acceleration = Vector3.zero;
-        }
-
-        // pairwise accumulation
-        for (int i = 0; i < n - 1; ++i)
-        {
-            for (int j = i + 1; j < n; ++j)
-            {
-                Vector3 r = this.vbs[j].position - this.vbs[i].position;
-                float r2 = r.sqrMagnitude + this.softening * this.softening;
-                float invR = 1.0f / Mathf.Sqrt(r2);
-                float invR3 = invR * invR * invR;
-
-                Vector3 a = r * invR3;
-
-                this.vbs[i].acceleration += a * this.vbs[j].mass;
-                this.vbs[j].acceleration -= a * this.vbs[i].mass;
-            }
-        }
-    }
-
     private void Simulate()
     {
-        if (this.vbs == null)
-        {
-            return;
-        }
-
-        int n = this.vbs.Length;
+        int n = this.bodies.Length;
         if (n == 0 || this.numSteps < 2)
         {
             return;
@@ -144,29 +134,23 @@ public class OrbitDrawer : MonoBehaviour
             {
                 this.trails[i] = new Vector3[this.numSteps];
             }
-            this.trails[i][0] = this.vbs[i].position;
+            this.trails[i][0] = this.pos[i];
         }
 
         // leapfrog: initial half-kick
-        this.ComputeAccelerations();
-        for (int i = 0; i < n; ++i)
-        {
-            this.vbs[i].velocity += this.vbs[i].acceleration * (Time.fixedDeltaTime * 0.5f);
-        }
+        NBodyLeapfrog.ComputeAccelerations(pos, mass, acc);
+        NBodyLeapfrog.InitialHalfKick(vel, acc, Time.fixedDeltaTime);
 
         // main steps
         for (int @is = 1; @is < this.numSteps; ++@is)
         {
             // drift
-            for (int i = 0; i < n; ++i)
-            {
-                this.vbs[i].position += this.vbs[i].velocity * Time.fixedDeltaTime;
-            }
+            NBodyLeapfrog.Drift(pos, vel, Time.fixedDeltaTime);
 
             // record position
             for (int i = 0; i < n; ++i)
             {
-                this.trails[i][@is] = this.vbs[i].position;
+                this.trails[i][@is] = this.pos[i];
             }
 
             this.stepsUsed = @is + 1;
@@ -179,30 +163,29 @@ public class OrbitDrawer : MonoBehaviour
                 break;
             }
 
-            this.ComputeAccelerations();
+            NBodyLeapfrog.ComputeAccelerations(pos, mass, acc);
 
             // full kick except last
             if (@is < numSteps - 1)
             {
-                for (int i = 0; i < n; ++i)
-                {
-                    this.vbs[i].velocity += this.vbs[i].acceleration * Time.fixedDeltaTime;
-                }
+                NBodyLeapfrog.FullKick(vel, acc, Time.fixedDeltaTime);
             }
         }
 
         if (!this.hasCollision)
         {
             // final half-kick to keep positions/velocities time-centered
-            for (int i = 0; i < n; ++i)
-            {
-                this.vbs[i].velocity += this.vbs[i].acceleration * (Time.fixedDeltaTime * 0.5f);
-            }
+            NBodyLeapfrog.InitialHalfKick(vel, acc, Time.fixedDeltaTime);
         }
     }
 
     private void DrawTrails()
     {
+        if (this.trails == null || this.bodies == null)
+        {
+            return;
+        }
+
         int n = this.trails.Length;
 
         var anchor = Vector3.zero;
@@ -239,30 +222,10 @@ public class OrbitDrawer : MonoBehaviour
                 pa = pa - pref + anchor;
                 pb = pb - pref + anchor;
             }
-            float rA = this.vbs[this.colA].radius;
-            float rB = this.vbs[this.colB].radius;
+            float rA = this.radius[this.colA];
+            float rB = this.radius[this.colB];
             Gizmos.DrawSphere(pa, rA);
             Gizmos.DrawSphere(pb, rB);
         }
-    }
-
-
-    private void OnDrawGizmos()
-    {
-        if (Application.isPlaying)
-        {
-            if (this.trails == null)
-            {
-                Init();
-                Simulate();
-            }
-        }
-        else
-        {
-            Init();
-            Simulate();
-        }
-
-        DrawTrails();
     }
 }
