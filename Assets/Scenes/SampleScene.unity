@@ -656,8 +656,8 @@ Transform:
   m_GameObject: {fileID: 1000112419}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 30960, y: 0, z: -765}
-  m_LocalScale: {x: 173.4, y: 173.4, z: 173.4}
+  m_LocalPosition: {x: 30000, y: 0, z: -765}
+  m_LocalScale: {x: 600, y: 600, z: 600}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 196212673}
@@ -750,7 +750,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   surfaceG: 10
   initialVelocity: {x: 5.18, y: -3.9, z: 78.2}
-  radius: 86.7
+  radius: 300
 --- !u!1 &1335102932
 GameObject:
   m_ObjectHideFlags: 0
@@ -780,8 +780,8 @@ Transform:
   m_GameObject: {fileID: 1335102932}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 31390, y: 494, z: -505}
-  m_LocalScale: {x: 42.2, y: 42.2, z: 42.2}
+  m_LocalPosition: {x: 28572, y: 497, z: -4160}
+  m_LocalScale: {x: 40, y: 40, z: 40}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 196212673}
@@ -872,9 +872,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 08514e5954ac86b42a68782cef357060, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  surfaceG: 1.72
-  initialVelocity: {x: 0, y: 0, z: 84.3}
-  radius: 21.1
+  surfaceG: 1.7
+  initialVelocity: {x: -0.06, y: -1.51, z: 79.4}
+  radius: 20
 --- !u!1 &1450139381
 GameObject:
   m_ObjectHideFlags: 0
