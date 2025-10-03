@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Cam : MonoBehaviour
+public class OrbitalCam : MonoBehaviour
 {
     //public CelestialBody axis;
     public CelestialBody target;
@@ -8,7 +8,6 @@ public class Cam : MonoBehaviour
 
     private void Awake()
     {
-        
         //this.transform.parent = this.target.transform;
     }
 
