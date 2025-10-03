@@ -304,8 +304,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20274fb7940ccdf41abaf3be75082fde, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  numSteps: 60000
-  relativeTo: {fileID: 1000112426}
+  numSteps: 20000
+  deltaTime: 1
+  relativeTo: {fileID: 29991144}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -457,7 +458,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 1000112426}
-  distance: 1000
+  distance: 5000
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -593,7 +594,7 @@ GameObject:
   - component: {fileID: 479309409}
   - component: {fileID: 479309408}
   m_Layer: 0
-  m_Name: Earth (1)
+  m_Name: Mars
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -609,7 +610,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 81283, y: 0, z: -765}
-  m_LocalScale: {x: 600, y: 600, z: 600}
+  m_LocalScale: {x: 560, y: 560, z: 560}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 196212673}
@@ -628,7 +629,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   surfaceG: 20
   initialVelocity: {x: 0, y: 0, z: 60}
-  radius: 300
+  radius: 280
 --- !u!135 &479309409
 SphereCollider:
   m_ObjectHideFlags: 0

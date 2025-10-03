@@ -40,7 +40,7 @@ public class SolarSystem : MonoBehaviour
         {
             this.bodies[i].transform.position = this.leapfrogSolver.Pos[i];
         }
-        
+
         // full kick
         this.leapfrogSolver.ComputeAccelerations();
         this.leapfrogSolver.FullKick();
