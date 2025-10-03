@@ -13,8 +13,8 @@ public struct VirtualBody
 public class OrbitDrawer : MonoBehaviour
 {
     [Min(0)] public int numSteps = 10_000;
-    [Range(0.02f, 1f)]
-    public float deltaTime = 0.02f;
+    [ReadOnly] public int step = 0;
+    [Range(0.02f, 1f)] public float deltaTime = 0.02f;
     public CelestialBody relativeTo = null; // if set, draw orbits relative to this body
 
     private CelestialBody[] bodies;
@@ -25,7 +25,6 @@ public class OrbitDrawer : MonoBehaviour
     private Vector3[][] trails;
 
     private int colA = -1, colB = -1;
-    private int step = 0;
 
     private void Awake()
     {
